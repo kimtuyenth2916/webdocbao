@@ -1,7 +1,6 @@
 const express = require('express');
 const { Pool } = require('pg');
-
-const app = express();
+const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
@@ -12,8 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Kết nối tới database Supabase qua PostgreSQL Pool
-// Thay thế đoạn code pool cũ bằng đoạn này:
+// Kết nối tới database Supabase
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
@@ -21,7 +19,7 @@ const pool = new Pool({
     }
 });
 
-// Middleware xác thực Token JWT khi người dùng thực hiện các hành động cần đăng nhập
+// Middleware xác thực Token JWT
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -35,24 +33,19 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// 1. API Đăng ký tài khoản mới
+// 1. API Đăng ký
 app.post('/api/register', async (req, res) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) return res.status(400).json({ error: "Thiếu tài khoản hoặc mật khẩu" });
-
-        // Mã hóa mật khẩu trước khi lưu vào database để bảo mật
         const hashedPassword = await bcrypt.hash(password, 10);
-        
         const result = await pool.query(
             'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username',
             [username, hashedPassword]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        if (err.code === '23505') { // Lỗi trùng lặp dữ liệu (Unique constraint) trong PostgreSQL
-            return res.status(400).json({ error: "Tên đăng nhập đã tồn tại" });
-        }
+        if (err.code === '23505') return res.status(400).json({ error: "Tên đăng nhập đã tồn tại" });
         res.status(500).json({ error: err.message });
     }
 });
@@ -62,17 +55,12 @@ app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-        
-        if (result.rows.length === 0) {
-            return res.status(400).json({ error: "Tài khoản không tồn tại" });
-        }
+        if (result.rows.length === 0) return res.status(400).json({ error: "Tài khoản không tồn tại" });
         
         const user = result.rows[0];
-        // So sánh mật khẩu nhập vào với mật khẩu đã mã hóa trong database
         const isMatch = await bcrypt.compare(password, user.password);
         
         if (isMatch) {
-            // Tạo mã token chứa ID và Username
             const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1d' });
             res.json({ token, username: user.username });
         } else {
@@ -83,7 +71,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// 3. API Lấy danh sách toàn bộ bài báo (Ai cũng đọc được - Không cần đăng nhập)
+// 3. API Lấy danh sách bài báo
 app.get('/api/articles', async (req, res) => {
     try {
         const result = await pool.query(
@@ -94,21 +82,18 @@ app.get('/api/articles', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        // Ghi log ra để bạn xem trên Render Dashboard dễ hơn
-        console.error("Lỗi tại API /api/articles:", err); 
-        res.status(500).json({ error: "Lỗi kết nối database: " + err.message });
+        res.status(500).json({ error: err.message });
     }
 });
 
-// 4. API Thêm bài báo mới (Bắt buộc phải đăng nhập)
+// 4. API Thêm bài báo
 app.post('/api/articles', authenticateToken, async (req, res) => {
     try {
         const { title, content } = req.body;
-        if (!title || !content) return res.status(400).json({ error: "Thiếu tiêu đề hoặc nội dung bài báo" });
-
+        if (!title || !content) return res.status(400).json({ error: "Thiếu tiêu đề hoặc nội dung" });
         const result = await pool.query(
             'INSERT INTO articles (title, content, author_id) VALUES ($1, $2, $3) RETURNING *',
-            [title, content, req.user.id] // req.user.id được lấy ra từ middleware authenticateToken
+            [title, content, req.user.id]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -116,6 +101,5 @@ app.post('/api/articles', authenticateToken, async (req, res) => {
     }
 });
 
-// Khởi chạy server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server API đang chạy tại port: ${PORT}`));
+app.listen(PORT, () => console.log(`Server đang chạy tại port: ${PORT}`));
