@@ -16,7 +16,11 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    // Thêm dòng này để ép dùng IPv4 và tránh lỗi mạng
+    host: 'db.mnkprezzjxprqggpzpnj.supabase.co',
+    port: 5432,
+    family: 4 
 });
 
 // Middleware xác thực Token JWT
