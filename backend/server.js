@@ -94,7 +94,9 @@ app.get('/api/articles', async (req, res) => {
         );
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        // Ghi log ra để bạn xem trên Render Dashboard dễ hơn
+        console.error("Lỗi tại API /api/articles:", err); 
+        res.status(500).json({ error: "Lỗi kết nối database: " + err.message });
     }
 });
 
