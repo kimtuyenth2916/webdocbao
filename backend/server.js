@@ -12,9 +12,12 @@ app.use(cors());
 app.use(express.json());
 
 // Kết nối tới database Supabase qua PostgreSQL Pool
+// Thay thế đoạn code pool cũ bằng đoạn này:
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } // Bắt buộc khi kết nối tới Supabase từ bên ngoài
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 // Middleware xác thực Token JWT khi người dùng thực hiện các hành động cần đăng nhập
