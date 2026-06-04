@@ -17,11 +17,9 @@ const pool = new Pool({
     ssl: {
         rejectUnauthorized: false
     },
-    // Các dòng dưới đây ép buộc thư viện pg dùng IPv4
-    host: 'db.mnkprezzjxprqggpzpnj.supabase.co', // Host chính xác của bạn
-    port: 5432,
-    family: 4, // Ép dùng IPv4
-    keepAlive: true
+    // Với connection pooler, bạn không cần chỉ định host/port thủ công 
+    // vì nó đã nằm hết trong DATABASE_URL rồi.
+    family: 4 
 });
 
 // Middleware xác thực Token JWT
